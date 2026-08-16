@@ -1,42 +1,42 @@
-import { BaseRecord, DataProvider, GetListParams, GetListResponse } from "@refinedev/core";
+import { BACKEND_BASE_URL } from "@/constants";
+import { ListResponse } from "@/types";
+import { createDataProvider, CreateDataProviderOptions } from "@refinedev/rest";
 
-const subjects = [
-  {
-    id: '1',
-    code: 'CS101',
-    name: 'Introduction to Computer Science',
-    department: 'Computer Science',
-    description: 'Fundamental concepts of computing, programming, and problem solving for first-year students.'
-  },
-  {
-    id: '2',
-    code: 'MATH220',
-    name: 'Linear Algebra and Matrix Theory',
-    department: 'Mathematics',
-    description: 'Vector spaces, matrix operations, systems of linear equations, and applications in engineering and science.'
-  },
-  {
-    id: '3',
-    code: 'ENG305',
-    name: 'Technical Writing for Engineers',
-    department: 'English',
-    description: 'Techniques for clear, concise written communication in technical and professional environments.'
-  }
-];
+const options: CreateDataProviderOptions = {
+  getList: {
+    getEndpoint: ({ resource }) => resource,
 
-export const dataProvider: DataProvider = {
-  getList: async <TData extends BaseRecord = BaseRecord>({ resource }: 
-    GetListParams): Promise<GetListResponse <TData>> => {
-      if (resource !== 'subjects') return { data:[] as TData[], total: 0 };
+    buildQueryParams: async ({ resource, pagination, filters }) => {
+      const page = pagination?.currentPage ?? 1;
+      const pageSize = pagination?.pageSize ?? 10;
+      const params: Record<string, string|number> = { page, limit: pageSize };
 
-      return {
-        data: subjects as unknown as TData[],
-        total: subjects.length
-      }
+      filters?.forEach((filter) => {
+        const field = 'field' in filter ? filter.field : '';
+        const value = String(filter.value);
+
+        if (resource === 'subjects') {
+          if (field === 'department') params.department = value;
+          if (field === 'name' || field === 'code') params.search = value;
+        }
+      })
+      return params;
     },
-    getOne: async () => {throw new Error('This function is not available in mock data provider')},
-    create: async () => {throw new Error('This function is not available in mock data provider')},
-    update: async () => {throw new Error('This function is not available in mock data provider')},
-    deleteOne: async () => {throw new Error('This function is not available in mock data provider')},
-    getApiUrl: () => '',
-}
+
+    mapResponse: async (response) => {
+        const payload: ListResponse = await response.json();
+
+        return payload.data ?? [];
+    },
+
+    getTotalCount: async (response) => {
+      const payload: ListResponse = await response.json();
+
+      return payload.pagination?.total ?? payload.data?.length ?? 0;
+    }
+  }
+};
+
+const { dataProvider } = createDataProvider(BACKEND_BASE_URL, options);
+
+export { dataProvider };
